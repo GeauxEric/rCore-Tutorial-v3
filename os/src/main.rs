@@ -4,6 +4,8 @@
 #![feature(asm)]
 #![feature(panic_info_message)]
 
+use log::*;
+
 #[macro_use]
 mod console;
 mod lang_items;
@@ -34,14 +36,20 @@ pub fn rust_main() -> ! {
         fn boot_stack_top();
     }
     clear_bss();
+
+    static LOGGER: console::SimpleLogger = console::SimpleLogger;
+    log::set_logger(&LOGGER).unwrap();
+    log::set_max_level(LevelFilter::Trace);
+
     println!("Hello, world!");
-    println!(".text [{:#x}, {:#x})", stext as usize, etext as usize);
-    println!(".rodata [{:#x}, {:#x})", srodata as usize, erodata as usize);
-    println!(".data [{:#x}, {:#x})", sdata as usize, edata as usize);
-    println!(
+    info!(".text [{:#x}, {:#x})", stext as usize, etext as usize);
+    info!(".rodata [{:#x}, {:#x})", srodata as usize, erodata as usize);
+    info!(".data [{:#x}, {:#x})", sdata as usize, edata as usize);
+    info!(
         "boot_stack [{:#x}, {:#x})",
         boot_stack as usize, boot_stack_top as usize
     );
-    println!(".bss [{:#x}, {:#x})", sbss as usize, ebss as usize);
+    info!(".bss [{:#x}, {:#x})", sbss as usize, ebss as usize);
+    warn!("Shutdown machine!");
     panic!("Shutdown machine!");
 }

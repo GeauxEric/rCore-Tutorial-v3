@@ -33,9 +33,9 @@ build: env switch-check $(KERNEL_BIN)
 
 switch-check:
 ifeq ($(BOARD), qemu)
-	(which last-qemu) || (rm last-k210 -f && touch last-qemu && make clean)
+	(which last-qemu) || (rm last-k210 -f && touch last-qemu)
 else ifeq ($(BOARD), k210)
-	(which last-k210) || (rm last-qemu -f && touch last-k210 && make clean)
+	(which last-k210) || (rm last-qemu -f && touch last-k210)
 endif
 
 env:
