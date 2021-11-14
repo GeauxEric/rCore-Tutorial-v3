@@ -28,6 +28,22 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
     let stval = stval::read();
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
+            // check if the string is within the mem space of app
+            // apps are executed serially
+            // each app exclusively uses the whole user stack as its sole mem space
+            // so I suppose we only need to check the data is within the user stack
+            let args = [cx.x[10], cx.x[11], cx.x[12]];
+            let base = cx.sepc;
+            let end = base + cx.x[2];
+            if args[1] < base || args[1] >= end {
+                println!("Illegal access");
+                run_next_app();
+            }
+            if args[1] + args[2] >= end {
+                println!("Illegal access");
+                run_next_app();
+            }
+
             cx.sepc += 4;
             cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
         }
