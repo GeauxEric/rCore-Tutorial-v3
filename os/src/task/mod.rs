@@ -2,12 +2,13 @@ mod context;
 mod switch;
 mod task;
 
-use crate::config::MAX_APP_NUM;
+use crate::config::{APP_SIZE_LIMIT, MAX_APP_NUM};
 use crate::loader::{get_num_app, init_app_cx};
 use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
 use crate::sync::UPSafeCell;
+use crate::loader::get_base_i;
 
 pub use context::TaskContext;
 
@@ -63,6 +64,13 @@ impl TaskManager {
         panic!("unreachable in run_first_task!");
     }
 
+    fn get_current_address_range(&self) -> (usize, usize){
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let base = get_base_i(current);
+        (base, base + APP_SIZE_LIMIT)
+    }
+
     fn mark_current_suspended(&self) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
@@ -106,6 +114,10 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+}
+
+pub fn get_current_task_address_range() -> (usize, usize) {
+    TASK_MANAGER.get_current_address_range()
 }
 
 pub fn run_first_task() {
