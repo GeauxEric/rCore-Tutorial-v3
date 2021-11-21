@@ -1,6 +1,7 @@
 use crate::task::{
-    suspend_current_and_run_next,
     exit_current_and_run_next,
+    set_priority,
+    suspend_current_and_run_next,
 };
 use crate::timer::get_time_us;
 
@@ -20,6 +21,14 @@ pub fn sys_exit(exit_code: i32) -> ! {
 pub fn sys_yield() -> isize {
     suspend_current_and_run_next();
     0
+}
+
+pub fn sys_set_priority(priority: isize) -> isize {
+    if priority <= 1 {
+        return -1
+    }
+    set_priority(priority);
+    priority
 }
 
 // pub fn sys_get_time() -> isize {

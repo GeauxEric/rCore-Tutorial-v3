@@ -2,7 +2,7 @@ mod context;
 mod switch;
 mod task;
 
-use crate::config::{APP_SIZE_LIMIT, MAX_APP_NUM};
+use crate::config::{APP_SIZE_LIMIT, BIG_STRIDE, MAX_APP_NUM};
 use crate::loader::{get_num_app, init_app_cx};
 use lazy_static::*;
 use switch::__switch;
@@ -28,7 +28,9 @@ lazy_static! {
         let mut tasks = [
             TaskControlBlock {
                 task_cx: TaskContext::zero_init(),
-                task_status: TaskStatus::UnInit
+                task_status: TaskStatus::UnInit,
+                priority: 16,
+                stride: 0,
             };
             MAX_APP_NUM
         ];
@@ -64,6 +66,12 @@ impl TaskManager {
         panic!("unreachable in run_first_task!");
     }
 
+    fn set_priority(&self, priority: isize) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].priority = priority;
+    }
+
     fn get_current_address_range(&self) -> (usize, usize){
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
@@ -85,12 +93,26 @@ impl TaskManager {
 
     fn find_next_task(&self) -> Option<usize> {
         let inner = self.inner.exclusive_access();
-        let current = inner.current_task;
-        (current + 1..current + self.num_app + 1)
-            .map(|id| id % self.num_app)
-            .find(|id| {
-                inner.tasks[*id].task_status == TaskStatus::Ready
-            })
+        let mut min_stride = usize::MAX;
+        let mut min_stride_tid = self.num_app + 1;
+        for tid in 0..self.num_app {
+            let task = inner.tasks[tid];
+            if task.task_status != TaskStatus::Ready {
+                continue
+            }
+            if task.stride < min_stride {
+                min_stride = task.stride;
+                min_stride_tid = tid;
+            }
+        }
+        if min_stride_tid == self.num_app + 1 {
+            return None;
+        } else {
+            let tid = min_stride_tid;
+            let mut task = inner.tasks[tid];
+            task.stride += (BIG_STRIDE / task.priority) as usize;
+            return Some(tid)
+        }
     }
 
     fn run_next_task(&self) {
@@ -139,6 +161,10 @@ fn mark_current_exited() {
 pub fn suspend_current_and_run_next() {
     mark_current_suspended();
     run_next_task();
+}
+
+pub fn set_priority(priority: isize) {
+    TASK_MANAGER.set_priority(priority)
 }
 
 pub fn exit_current_and_run_next() {
