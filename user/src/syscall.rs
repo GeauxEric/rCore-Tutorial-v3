@@ -135,6 +135,7 @@ pub fn sys_yield() -> isize {
 }
 
 pub fn sys_get_time(time: &TimeVal, tz: usize) -> isize {
+    // translate the mem addr of the `time`
     syscall(SYSCALL_GETTIMEOFDAY, [time as *const _ as usize, tz, 0])
 }
 
