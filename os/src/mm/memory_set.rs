@@ -1,20 +1,23 @@
-use super::{PageTable, PageTableEntry, PTEFlags};
-use super::{VirtPageNum, VirtAddr, PhysPageNum, PhysAddr};
-use super::{FrameTracker, frame_alloc};
-use super::{VPNRange, StepByOne};
 use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
-use riscv::register::satp;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
+
 use lazy_static::*;
-use crate::sync::UPSafeCell;
+use riscv::register::satp;
+
 use crate::config::{
     MEMORY_END,
     PAGE_SIZE,
     TRAMPOLINE,
     TRAP_CONTEXT,
-    USER_STACK_SIZE
+    USER_STACK_SIZE,
 };
+use crate::sync::UPSafeCell;
+
+use super::{PageTable, PageTableEntry, PTEFlags};
+use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
+use super::{frame_alloc, FrameTracker};
+use super::{StepByOne, VPNRange};
 
 extern "C" {
     fn stext();
@@ -49,6 +52,14 @@ impl MemorySet {
     }
     pub fn token(&self) -> usize {
         self.page_table.token()
+    }
+    pub fn does_conflict(&self, start_va: &VirtAddr, end_va: &VirtAddr) -> bool {
+        for area in &self.areas {
+            if area.overlaps(start_va, end_va) {
+                return true;
+            }
+        }
+        return false;
     }
     /// Assume that no conflicts.
     pub fn insert_framed_area(&mut self, start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) {
@@ -240,6 +251,11 @@ impl MapArea {
             map_type,
             map_perm,
         }
+    }
+    pub fn overlaps(&self, start_va: &VirtAddr, end_va: &VirtAddr) -> bool {
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        self.vpn_range.contains(start_vpn) || self.vpn_range.contains(end_vpn)
     }
     pub fn from_another(another: &MapArea) -> Self {
         Self {

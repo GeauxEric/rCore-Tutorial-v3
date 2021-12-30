@@ -1,11 +1,12 @@
+use alloc::sync::Arc;
+
 use crate::loader::get_app_data_by_name;
-use crate::mm::{translated_refmut, translated_str};
+use crate::mm::{MapPermission, translated_refmut, translated_str, VirtAddr};
 use crate::task::{
     add_task, current_task, current_user_token, exit_current_and_run_next,
     suspend_current_and_run_next,
 };
 use crate::timer::get_time_us;
-use alloc::sync::Arc;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -52,6 +53,46 @@ pub fn sys_exec(path: *const u8) -> isize {
     } else {
         -1
     }
+}
+
+/// Apply for some memory
+///
+/// # Arguments
+/// * `len` - size of the memory
+/// * `start` - start of the virtual memory
+/// * `prot` - attribute of the pages
+pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
+    if prot > 0b111 {
+        return -1;
+    }
+    let bits = (prot & 0b111) as u8;
+    if bits == 0 {
+        return -1;
+    }
+    let mut perm = MapPermission::U;
+    if (bits & 0b1) != 0 {
+        perm = perm | MapPermission::R;
+    }
+    if (bits & 0b10) != 0 {
+        perm = perm | MapPermission::W;
+    }
+    if (bits & 0b100) != 0 {
+        perm = perm | MapPermission::X;
+    }
+
+    let start_va: VirtAddr = start.into();
+    if !start_va.aligned() {
+        return -1;
+    }
+    let end_va: VirtAddr = (start + len - 1).into();
+
+    let task = current_task().unwrap();
+    let mut task_inner = task.inner_exclusive_access();
+    if task_inner.memory_set.does_conflict(&start_va, &end_va) {
+        return -1;
+    }
+    task_inner.memory_set.insert_framed_area(start_va, end_va, perm);
+    0
 }
 
 /// If there is not a child process whose pid is same as given, return -1.
