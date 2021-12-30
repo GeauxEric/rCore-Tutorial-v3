@@ -88,6 +88,12 @@ impl TaskControlBlock {
         );
         task_control_block
     }
+    pub fn spawn(self: &Arc<TaskControlBlock>, elf_data: &[u8]) -> Arc<TaskControlBlock> {
+        let task_control_blk = Arc::new(TaskControlBlock::new(elf_data));
+        self.inner_exclusive_access().children.push(task_control_blk.clone());
+        task_control_blk.inner.exclusive_access().parent = Some(Arc::downgrade(self));
+        task_control_blk
+    }
     pub fn exec(&self, elf_data: &[u8]) {
         // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);

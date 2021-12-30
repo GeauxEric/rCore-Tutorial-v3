@@ -43,6 +43,27 @@ pub fn sys_fork() -> isize {
     new_pid as isize
 }
 
+/// Create a new process and execute the program
+///
+/// Returns the pid when success, otherwise returns -1.
+///
+/// # Argument
+/// * `path` - path to the program
+///
+pub fn sys_spwan(path: *const u8) -> isize {
+    let token = current_user_token();
+    let path = translated_str(token, path);
+    if let Some(data) = get_app_data_by_name(&path) {
+        let current_task = current_task().unwrap();
+        let spawned = current_task.spawn(data);
+        let pid = spawned.pid.0;
+        add_task(spawned);
+        pid as isize
+    } else {
+        -1
+    }
+}
+
 pub fn sys_exec(path: *const u8) -> isize {
     let token = current_user_token();
     let path = translated_str(token, path);
