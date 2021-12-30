@@ -55,6 +55,23 @@ pub fn sys_exec(path: *const u8) -> isize {
     }
 }
 
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    let start_va: VirtAddr = start.into();
+    if !start_va.aligned() {
+        return -1;
+    }
+    let end_va: VirtAddr = (start + len).into();
+    let task = current_task().unwrap();
+    let mut task_inner = task.inner_exclusive_access();
+    let contains = task_inner.memory_set.contains_area(start_va, end_va);
+    return if !contains {
+        -1
+    } else {
+        task_inner.memory_set.remove_area_with_start_vpn(start_va.floor());
+        0
+    }
+}
+
 /// Apply for some memory
 ///
 /// # Arguments
@@ -84,11 +101,11 @@ pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
     if !start_va.aligned() {
         return -1;
     }
-    let end_va: VirtAddr = (start + len - 1).into();
+    let end_va: VirtAddr = (start + len).into();
 
     let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
-    if task_inner.memory_set.does_conflict(&start_va, &end_va) {
+    if task_inner.memory_set.does_conflict(start_va, end_va) {
         return -1;
     }
     task_inner.memory_set.insert_framed_area(start_va, end_va, perm);

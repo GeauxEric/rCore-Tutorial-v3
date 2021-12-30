@@ -53,7 +53,7 @@ impl MemorySet {
     pub fn token(&self) -> usize {
         self.page_table.token()
     }
-    pub fn does_conflict(&self, start_va: &VirtAddr, end_va: &VirtAddr) -> bool {
+    pub fn does_conflict(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool {
         for area in &self.areas {
             if area.overlaps(start_va, end_va) {
                 return true;
@@ -76,6 +76,13 @@ impl MemorySet {
             area.unmap(&mut self.page_table);
             self.areas.remove(idx);
         }
+    }
+    pub fn contains_area(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool {
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        self.areas.iter().find(|area| {
+            area.vpn_range.get_start() == start_vpn && area.vpn_range.get_end() == end_vpn
+        }).is_some()
     }
     fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
         map_area.map(&mut self.page_table);
@@ -252,10 +259,12 @@ impl MapArea {
             map_perm,
         }
     }
-    pub fn overlaps(&self, start_va: &VirtAddr, end_va: &VirtAddr) -> bool {
+    pub fn overlaps(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool {
         let start_vpn = start_va.floor();
         let end_vpn = end_va.ceil();
-        self.vpn_range.contains(start_vpn) || self.vpn_range.contains(end_vpn)
+        let does_not_overlap = (end_vpn <= self.vpn_range.get_start()) ||
+            (start_vpn >= self.vpn_range.get_end());
+        return !does_not_overlap;
     }
     pub fn from_another(another: &MapArea) -> Self {
         Self {
