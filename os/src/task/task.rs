@@ -8,7 +8,7 @@ use super::{PidHandle, pid_alloc, KernelStack};
 use alloc::sync::{Weak, Arc};
 use alloc::vec;
 use alloc::vec::Vec;
-use crate::fs::{File, Stdin, Stdout};
+use crate::fs::{File, Mailbox, Stdin, Stdout};
 
 pub struct TaskControlBlock {
     // immutable
@@ -88,6 +88,8 @@ impl TaskControlBlock {
                     Some(Arc::new(Stdout)),
                     // 2 -> stderr
                     Some(Arc::new(Stdout)),
+                    // 3 -> mailbox
+                    Some(Arc::new(Mailbox::new())),
                 ],
             })},
         };

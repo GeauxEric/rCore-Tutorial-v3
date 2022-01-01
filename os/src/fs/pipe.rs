@@ -163,4 +163,12 @@ impl File for Pipe {
             }
         }
     }
+
+    fn is_full(&self) -> bool {
+        todo!()
+    }
+
+    fn is_empty(&self) -> bool {
+        todo!()
+    }
 }

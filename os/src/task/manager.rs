@@ -1,8 +1,11 @@
-use crate::sync::UPSafeCell;
-use super::TaskControlBlock;
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
+
 use lazy_static::*;
+
+use crate::sync::UPSafeCell;
+
+use super::TaskControlBlock;
 
 pub struct TaskManager {
     ready_queue: VecDeque<Arc<TaskControlBlock>>,
@@ -11,13 +14,18 @@ pub struct TaskManager {
 /// A simple FIFO scheduler.
 impl TaskManager {
     pub fn new() -> Self {
-        Self { ready_queue: VecDeque::new(), }
+        Self { ready_queue: VecDeque::new() }
     }
     pub fn add(&mut self, task: Arc<TaskControlBlock>) {
         self.ready_queue.push_back(task);
     }
     pub fn fetch(&mut self) -> Option<Arc<TaskControlBlock>> {
         self.ready_queue.pop_front()
+    }
+    pub fn get(&self, pid: usize) -> Option<Arc<TaskControlBlock>> {
+        self.ready_queue.iter().find(|task| {
+            task.pid.0 == pid
+        }).map(|task| task.clone())
     }
 }
 
@@ -33,4 +41,8 @@ pub fn add_task(task: Arc<TaskControlBlock>) {
 
 pub fn fetch_task() -> Option<Arc<TaskControlBlock>> {
     TASK_MANAGER.exclusive_access().fetch()
+}
+
+pub fn get_task(pid: usize) -> Option<Arc<TaskControlBlock>> {
+    TASK_MANAGER.exclusive_access().get(pid)
 }
