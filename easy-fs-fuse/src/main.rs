@@ -1,7 +1,4 @@
-use easy_fs::{
-    BlockDevice,
-    EasyFileSystem,
-};
+use easy_fs::{BlockDevice, EasyFileSystem, StatMode};
 use std::fs::{File, OpenOptions, read_dir};
 use std::io::{Read, Write, Seek, SeekFrom};
 use std::sync::Mutex;
@@ -90,6 +87,40 @@ fn easy_fs_pack() -> std::io::Result<()> {
         println!("{}", app);
     }
     Ok(())
+}
+
+#[test]
+fn fstat_test() -> std::io::Result<()>{
+    let block_file = Arc::new(BlockFile(Mutex::new({
+        let f = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open("target/lab.img")?;
+        f.set_len(8192 * 512).unwrap();
+        f
+    })));
+    EasyFileSystem::create(
+        block_file.clone(),
+        4096,
+        1,
+    );
+    let efs = EasyFileSystem::open(block_file.clone());
+    let root_inode = EasyFileSystem::root_inode(&efs);
+    root_inode.create("1").unwrap();
+    let stat = root_inode.fstat("1").unwrap();
+    assert_eq!(stat.ino, 1);
+    assert_eq!(stat.mode, StatMode::FILE);
+    assert_eq!(stat.nlink, 1);
+
+
+    let r = root_inode.link("1", "2");
+    assert_eq!(r, 0);
+    let stat = root_inode.fstat("1").unwrap();
+    assert_eq!(stat.nlink, 2);
+
+    Ok(())
+
 }
 
 #[test]
